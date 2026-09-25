@@ -1,0 +1,158 @@
+.bar {
+  display: flex;
+  align-items: stretch;
+  // 高度与同页宫格卡片对齐；写死定值，让三按钮形态和下面各状态切换时不改变页面高度
+  height: 58px;
+  box-sizing: border-box;
+  background: var(--box-card-bg);
+  border-radius: var(--box-radius-card);
+  box-shadow: var(--box-shadow);
+  overflow: hidden;
+}
+
+.slot {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+}
+
+.divider {
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 1px;
+  background: var(--box-divider);
+}
+
+.action {
+  flex: 1 1 auto;
+  // 垂直内边距必须与 .single 一致，两种形态算出来才是同一高度
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--box-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  // 按钮自身高度固定，切到忙碌态时不会有横幅式的伸展
+  align-self: stretch;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+
+  &:disabled {
+    color: var(--box-text-tertiary);
+    cursor: default;
+  }
+}
+
+.danger {
+  color: var(--box-danger);
+}
+
+.warning {
+  color: #b8860b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .warning {
+    color: var(--box-warning);
+  }
+}
+
+// 已停止时的整条"启动"按钮
+.single {
+  width: 100%;
+  // 与 .bar 同高；box-sizing 必须有，否则 width:100% + 左右内边距会比 .bar 宽一圈，
+  // "停止 → 启动"时整条操作栏会横向抽动一下
+  height: 58px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--box-radius-card);
+  background: var(--box-card-bg);
+  box-shadow: var(--box-shadow);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--box-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+
+  &:disabled {
+    color: var(--box-text-tertiary);
+    cursor: default;
+  }
+}
+
+.singleBusy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  // 与 .single 完全一致，保证"已停止 → 正在启动"这一步高度不变
+  height: 58px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: var(--box-radius-card);
+  background: var(--box-card-bg);
+  box-shadow: var(--box-shadow);
+  font-size: 17px;
+  font-weight: 600;
+  color: #b8860b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .singleBusy {
+    color: var(--box-warning);
+  }
+}
+
+.spinner {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: box-spin 0.9s linear infinite;
+}
+
+// 文案随状态切换淡入，与横幅上的状态词保持同样的节奏
+.busyText {
+  animation: box-fade-in 0.24s ease-out;
+}
+
+// 已等待秒数：弱化处理，只作为"确实在动"的旁证
+.busyHint {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.65;
+  // 数字宽度固定，逐秒变化时不会把左侧文案顶来顶去
+  font-variant-numeric: tabular-nums;
+  min-width: 22px;
+  text-align: left;
+}
+
+@keyframes box-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes box-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

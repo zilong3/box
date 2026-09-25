@@ -1,0 +1,32 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 4px 14px;
+}
+
+.compact {
+  padding: 4px 2px 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+  color: var(--box-text);
+}
+
+.compact .title {
+  font-size: 30px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  // 与标题基线大致对齐，图标按钮更大更好点
+  padding-top: 6px;
+}

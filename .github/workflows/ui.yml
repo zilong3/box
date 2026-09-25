@@ -1,0 +1,371 @@
+name: ui
+
+# ─────────────────────────────────────────────────────────────────────────────
+# fork 自用工作流：发布 ui 分支的模块包。
+#
+# 为什么单独建这个文件，而不是直接改上游的 release.yml / debug.yml：
+#   上游那两个文件保持逐字节不变、留在原位置，同步 upstream 时永远不会在这两个
+#   文件上产生冲突。本 fork 的构建流程（目录重构、控制面板、webroot 构建产物）
+#   与上游差异很大，放在自己的文件里互不干扰。
+#
+# 用法：Actions → 左侧 ui → Run workflow → Use workflow from 选 ui 分支
+#   mode = release  正式版：版本号填 1.2.9
+#                   → 建 tag=ui-1.2.9 的正式 Release，并把新版本号提交回 ui 分支
+#   mode = debug    预发布：版本号填 1.2.9-beta
+#                   → 覆盖 tag=ui-debug 的 Pre-release，只在构建时改 module.prop，不动分支
+#
+# tag 一律带 ui- 前缀：上游也有 1.2.8、debug 这些 tag，同名 tag 指向不同提交会让
+# git fetch --tags 静默失败（! [已拒绝] ... 会破坏现有的标签），所以 fork 用自己的命名空间。
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '发布类型'
+        required: true
+        type: choice
+        default: debug
+        options:
+          - debug
+          - release
+      version:
+        description: '版本号（正式版如 1.2.9；预发布如 1.2.9-beta。不能含空格，不用写 ui- 前缀）'
+        required: true
+        type: string
+      changelog:
+        description: '更新日志（仅 release 生效；留空则自动从 commits 生成，手动填写可用 | 分隔）'
+        required: false
+        type: string
+
+jobs:
+  # ══════════════════════════════════════════════════════════════════════════
+  # 正式版：建 tag=<版本号> 的正式 Release，并把新版本号提交回 ui
+  # ══════════════════════════════════════════════════════════════════════════
+  release:
+    if: github.event.inputs.mode == 'release' && github.ref_name == 'ui'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # 1. Checkout repository
+      - uses: actions/checkout@v4
+        with:
+          ref: ui
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. 由版本号推导 tag（统一加 ui- 前缀；容错用户自己带了前缀）
+      - name: Resolve tag
+        id: tag
+        run: |
+          V="${{ github.event.inputs.version }}"
+          V="${V#ui-}"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "tag=ui-$V" >> "$GITHUB_OUTPUT"
+
+      # 3. Generate version date
+      - name: Get Version
+        id: get_version
+        run: echo "date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      # 4. Generate changelog
+      - name: Generate changelog
+        id: changelog
+        env:
+          INPUT_CHANGELOG: ${{ github.event.inputs.changelog }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if [ -n "$(printf "%s" "$INPUT_CHANGELOG" | tr -d '[:space:]')" ]; then
+            CHANGELOG_BODY=$(printf "%s\n" "$INPUT_CHANGELOG" | tr '|' '\n' | while IFS= read -r line; do
+              trimmed_line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+              if [ -n "$trimmed_line" ]; then
+                echo "- $trimmed_line"
+              fi
+            done)
+            CHANGELOG_TITLE="手动更新日志"
+          else
+            PREVIOUS_TAG=$(git tag -l --sort=-v:refname | grep -E '^ui-v?[0-9]+\.[0-9]+\.[0-9]+$' | grep -v -x "$RELEASE_TAG" | head -n 1)
+            if [ -n "$PREVIOUS_TAG" ]; then
+              CHANGELOG_BODY=$(git log "$PREVIOUS_TAG..HEAD" --pretty=format:'- %s (%h)' --no-merges)
+              CHANGELOG_TITLE="自 $PREVIOUS_TAG 以来的变更"
+            else
+              CHANGELOG_BODY=$(git log -n 50 --pretty=format:'- %s (%h)' --no-merges)
+              CHANGELOG_TITLE="最近变更"
+            fi
+          fi
+
+          if [ -z "$CHANGELOG_BODY" ]; then
+            CHANGELOG_BODY="- 暂无新的提交"
+          fi
+
+          echo "title=$CHANGELOG_TITLE" >> "$GITHUB_OUTPUT"
+          {
+            echo 'body<<EOF'
+            echo "$CHANGELOG_BODY"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # 5. Update update.json, module.prop, and CHANGELOG.md
+      - name: Update files
+        env:
+          RELEASE_CHANGELOG: ${{ steps.changelog.outputs.body }}
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          TAG="${{ steps.tag.outputs.tag }}"
+          DATE_NUM="${{ steps.get_version.outputs.date }}"
+          DATE_HUMAN=$(date +%d-%m-%Y)
+
+          # update.json
+          cat > box_for_root/update.json <<EOF
+          {
+            "version": "$VERSION",
+            "versionCode": "$DATE_NUM",
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/$TAG/box-$VERSION.zip",
+            "changelog": "https://github.com/${{ github.repository }}/raw/ui/box_for_root/CHANGELOG.md"
+          }
+          EOF
+
+          # module.prop
+          sed -i "s/^version=.*/version=$VERSION/" box_for_root/module.prop
+          sed -i "s/^versionCode=.*/versionCode=$DATE_NUM/" box_for_root/module.prop
+
+          # Changelog
+          if [ ! -f box_for_root/CHANGELOG.md ]; then
+            echo "# Changelog" > box_for_root/CHANGELOG.md
+            echo "" >> box_for_root/CHANGELOG.md
+          fi
+
+          {
+            echo "#### Changelog $VERSION - $DATE_HUMAN"
+            printf "%s\n" "$RELEASE_CHANGELOG"
+            echo ""
+            cat box_for_root/CHANGELOG.md
+          } > box_for_root/CHANGELOG.tmp && mv box_for_root/CHANGELOG.tmp box_for_root/CHANGELOG.md
+
+      # 6. Commit and push changes
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add box_for_root/update.json box_for_root/module.prop box_for_root/CHANGELOG.md
+          git commit -m "${{ steps.tag.outputs.tag }}" || echo "No changes to commit"
+          git push https://github-actions:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:ui
+
+      # 7. Build WebUI（webroot/ 为构建产物且不入库，须在打包前生成）
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build WebUI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build:ui
+
+      # 8. Run build script（build.sh 装配 box/ 与 box_for_root/，zip 产出在仓库根）
+      - name: Run build script
+        run: |
+          chmod +x box_for_root/build.sh
+          ./box_for_root/build.sh
+
+      # 9. Create GitHub Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: box-*.zip
+          body: |
+            #### Changelog ${{ steps.tag.outputs.tag }}
+
+            ${{ steps.changelog.outputs.title }}
+
+            ${{ steps.changelog.outputs.body }}
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # 预发布版 · 构建：改 module.prop（version=<输入>-<短hash>）并装配出 zip
+  # ══════════════════════════════════════════════════════════════════════════
+  debug-build:
+    if: github.event.inputs.mode == 'debug' && github.ref_name == 'ui'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      artifact_name: ${{ steps.get_version.outputs.artifact_name }}
+      latest_release_tag: ${{ steps.get_version.outputs.latest_release_tag }}
+
+    steps:
+      - uses: actions/checkout@v4.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Update Module.prop
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION=$(printf "%s" "$VERSION" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          if [ -z "$VERSION" ]; then
+            echo "version 不能为空"
+            exit 1
+          fi
+
+          COMMIT_HASH=$(git log --oneline -n 1 | awk '{print $1}')
+          sed -i "s/^version=.*/version=${VERSION}-${COMMIT_HASH}/g" box_for_root/module.prop
+          sed -i "s/versionCode=.*/versionCode=$(date +%Y%m%d)/g" box_for_root/module.prop
+
+      - name: Get Version
+        id: get_version
+        run: |
+          VERSION=$(grep -oP 'version=\K[^ ]+' box_for_root/module.prop | tr -d '\r')
+          LATEST_RELEASE_TAG=$(git tag -l --sort=-v:refname | grep -E '^ui-v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=box_$VERSION" >> "$GITHUB_OUTPUT"
+          echo "latest_release_tag=$LATEST_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+      # webroot/ 为构建产物且不入库，须在装配前生成
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build WebUI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build:ui
+
+      - name: Generate Asset
+        run: |
+          # 复用 box_for_root/build.sh 装配模块（顶层为 box/、META-INF/、module.prop、
+          # customize.sh、webroot/ 等），与 release 的 zip 内容完全一致。
+          # 不要再用 find 收集整仓：那会把 box_for_root/ 当成顶层目录收进去，
+          # 打出来的 zip 结构不对、无法直接安装。
+          chmod +x box_for_root/build.sh
+          ./box_for_root/build.sh
+          sudo mkdir -p /box
+          sudo unzip -oq box-*.zip -d /box
+
+      - name: Upload Debug Asset => box_${{ steps.get_version.outputs.version }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: "box_${{ steps.get_version.outputs.version }}"
+          path: /box/
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # 预发布版 · 发布：覆盖 tag=ui-debug 的 Pre-release（每次清空旧资产，只保留最新一份）
+  # ══════════════════════════════════════════════════════════════════════════
+  debug-publish:
+    if: github.event.inputs.mode == 'debug' && github.ref_name == 'ui'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - debug-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Get Version Info
+        id: get_version
+        run: |
+          VERSION="${{ needs.debug-build.outputs.version }}"
+          COMMIT_HASH=$(git log -1 --pretty=format:"%h")
+          COMMIT_DATE=$(git log -1 --pretty=format:"%ad" --date=short)
+          COMMIT_MSG=$(git log -1 --pretty=format:"%B")
+          LATEST_RELEASE_TAG="${{ needs.debug-build.outputs.latest_release_tag }}"
+          ARTIFACT_NAME="${{ needs.debug-build.outputs.artifact_name }}"
+
+          if [ -n "$LATEST_RELEASE_TAG" ]; then
+            CHANGELOG_TITLE="自 $LATEST_RELEASE_TAG 以来的变更"
+            CHANGELOG_BODY=$(git log "$LATEST_RELEASE_TAG..HEAD" --pretty=format:'- %s (%h)' --no-merges)
+          else
+            CHANGELOG_TITLE="最近变更"
+            CHANGELOG_BODY=$(git log -n 20 --pretty=format:'- %s (%h)' --no-merges)
+          fi
+
+          if [ -z "$CHANGELOG_BODY" ]; then
+            CHANGELOG_BODY="- 暂无新的提交"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "commit_hash=$COMMIT_HASH" >> "$GITHUB_OUTPUT"
+          echo "commit_date=$COMMIT_DATE" >> "$GITHUB_OUTPUT"
+          echo "changelog_title=$CHANGELOG_TITLE" >> "$GITHUB_OUTPUT"
+
+          {
+            echo 'commit_msg<<EOF'
+            echo "$COMMIT_MSG"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo 'changelog_body<<EOF'
+            echo "$CHANGELOG_BODY"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: "${{ steps.get_version.outputs.artifact_name }}"
+          path: ./artifact
+
+      - name: Create ZIP Package
+        run: |
+          cd artifact
+          zip -r "../${{ steps.get_version.outputs.artifact_name }}.zip" .
+          cd ..
+
+      - name: Delete Current Release Assets
+        uses: mknejp/delete-release-assets@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ui-debug
+          fail-if-no-assets: false
+          fail-if-no-release: false
+          assets: '*'
+
+      - name: Update Tag to Current Commit
+        uses: richardsimko/update-tag@v1
+        with:
+          tag_name: ui-debug
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Prerelease
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ui-debug
+          name: "Debug Build - ${{ steps.get_version.outputs.version }}"
+          body: |
+            ## 📦 调试构建
+
+            **版本:** ${{ steps.get_version.outputs.version }}
+            **提交:** ${{ steps.get_version.outputs.commit_hash }}
+            **日期:** ${{ steps.get_version.outputs.commit_date }}
+
+            ### 更新日志
+            <details>
+            <summary>${{ steps.get_version.outputs.changelog_title }}</summary>
+
+            ```text
+            ${{ steps.get_version.outputs.changelog_body }}
+            ```
+
+            </details>
+
+            ### 提交信息
+            ${{ steps.get_version.outputs.commit_msg }}
+
+            ---
+            ⚠️ 这是预发布版本，用于测试和调试。
+          files: ${{ steps.get_version.outputs.artifact_name }}.zip
+          prerelease: true
+          draft: false

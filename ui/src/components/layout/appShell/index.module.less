@@ -1,0 +1,13 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--box-page-bg);
+}
+
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  // 各页面自己负责滚动，这里只做布局
+  overflow: hidden;
+}

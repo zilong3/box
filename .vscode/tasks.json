@@ -1,0 +1,77 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  //
+  // 这里的 build:box 与 CI（.github/workflows/release.yml 的 build job）
+  // 的第 7~9 步保持一致，本地即可产出与 CI 相同内容的模块 zip：
+  //
+  //   1. 构建 UI   : cd ui && npm ci && npm run build:ui
+  //                  （webroot/ 是构建产物、不入库，必须先于打包生成）
+  //   2. 打包模块  : ./box_for_root/build.sh
+  //                  （装配 box/ 与 box_for_root/，zip 产出在仓库根，已被 .gitignore 忽略）
+  //
+  // 与 CI 的唯一取舍：CI 每次都是干净容器所以跑 npm ci；本地为了速度改用
+  // `npm ci` 的等价快路径判断——node_modules 缺失或 package-lock.json 比它新时才安装。
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build:ui",
+      "type": "shell",
+      "command": "npm run build:ui",
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      },
+      "group": "build",
+      "problemMatcher": [],
+      "dependsOn": "check-deps:ui"
+    },
+    {
+      // 判断是否需要重新安装依赖：node_modules 不存在，或 package-lock.json 比它新
+      "label": "check-deps:ui",
+      "type": "shell",
+      "command": "test -d node_modules && test node_modules -nt package-lock.json || npm ci",
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "close": true
+      }
+    },
+    {
+      // 与 CI 完整对齐：构建 UI → 打包模块
+      "label": "build:box",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "build:ui",
+        "package:box"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "package:box",
+      "type": "shell",
+      "command": "sh ./box_for_root/build.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      // 类型检查，与 CI 无关，本地提交前自查用
+      "label": "typecheck:ui",
+      "type": "shell",
+      "command": "npm run typecheck:ui",
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      },
+      "group": "test",
+      "problemMatcher": "$tsc"
+    }
+  ]
+}

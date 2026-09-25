@@ -1,0 +1,66 @@
+// 整屏内嵌外部页面的外壳（Sub-Store / WebUI 共用）。
+// 底栏是 position: fixed + z-index: 20，这里必须 fixed 且抬到它上面并铺满整个视口，
+// 否则面板底部会被"首页 / 工具 / 设置"压住，看着就不是全屏。
+.embed {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--box-page-bg);
+  // 顶部安全区（状态栏 / 刘海）
+  padding-top: env(safe-area-inset-top);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 12px var(--box-page-padding) 8px;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--box-text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+}
+
+.title {
+  flex: 1 1 auto;
+  // 标题吃掉中间剩余空间，右侧按钮因此始终贴右
+  min-width: 0;
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--box-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frame {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  border: none;
+  background: var(--box-card-bg);
+}

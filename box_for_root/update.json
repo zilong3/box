@@ -1,6 +1,6 @@
 {
   "version": "1.2.8",
-  "versionCode": "20260613",
-  "zipUrl": "https://github.com/boxproxy/box/releases/download/1.2.8/box-1.2.8.zip",
-  "changelog": "https://github.com/boxproxy/box/raw/master/CHANGELOG.md"
+  "versionCode": "20260925",
+  "zipUrl": "https://github.com/zilong3/box/releases/download/ui-1.2.8/box-1.2.8.zip",
+  "changelog": "https://github.com/zilong3/box/raw/ui/box_for_root/CHANGELOG.md"
 }

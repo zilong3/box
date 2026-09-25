@@ -1414,6 +1414,13 @@ cgroup_cpuset() {
 }
 
 webroot() {
+  # 已停用为 no-op：webroot/ 现在存放的是模块控制面板（ui/ 构建产物，随模块 zip 分发），
+  # 下面的历史实现会把 webroot/index.html 覆写成内核代理面板的跳转页，从而破坏控制面板。
+  # 这里只保留函数与 webroot 子命令，避免调用方(box.service)报错，也不再生成/覆盖任何文件；
+  # 保留原函数体是为了让本文件相对 upstream 的 diff 尽量小，方便后续同步。
+  # 需要重建面板请执行：cd ui && npm run build:ui（或 ./deploy.sh --build）。
+  return 0
+
   ip_port=$(if [ "${bin_name}" = "mihomo" ]; then busybox awk '/external-controller:/ {print $2}' "${mihomo_config}"; else busybox awk -F'[:,]' '/"external_controller"/ {print $2":"$3}' "${sing_config}" | sed 's/^[ \t]*//;s/"//g'; fi;)
   secret=$(if [ "${bin_name}" = "mihomo" ]; then busybox awk '/^secret:/ {print $2}' "${mihomo_config}" | sed 's/"//g'; else busybox awk -F'"' '/"secret"/ {print $4}' "${sing_config}" | head -n 1; fi;)
   path_webroot="/data/adb/modules/box_for_root/webroot/index.html"

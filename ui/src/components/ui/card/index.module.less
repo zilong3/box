@@ -1,0 +1,25 @@
+.card {
+  box-sizing: border-box;
+  background: var(--box-card-bg);
+  border-radius: var(--box-radius-card);
+  padding: 16px;
+  box-shadow: var(--box-shadow);
+}
+
+.tight {
+  padding: 12px 14px;
+}
+
+// 分组卡内部的行由各自的分隔线处理，这里去掉额外间距
+.grouped {
+  padding: 0;
+}
+
+.clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+}

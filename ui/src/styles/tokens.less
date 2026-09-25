@@ -1,0 +1,79 @@
+// 设计变量：截图里的圆角卡片、状态配色都收敛到这里，方便统一调整。
+// 颜色以 CSS 变量下发，深浅色主题各自覆盖。
+
+:root {
+  // 页面底色比卡片略深，卡片才是纯白
+  --box-page-bg: #f2f2f5;
+  --box-card-bg: #ffffff;
+  --box-subtle-bg: #f2f2f5;
+  --box-inset-bg: #ececef;
+
+  --box-text: #1a1a1c;
+  --box-text-secondary: #8a8a8f;
+  --box-text-tertiary: #a8a8ad;
+
+  --box-divider: rgba(0, 0, 0, 0.06);
+  --box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.04);
+
+  // 状态色
+  --box-success: #22c55e;
+  --box-success-bg: #e3f8ea;
+  --box-warning: #a16207;
+  --box-warning-bg: #f7e6bd;
+  --box-danger: #ef4444;
+  --box-danger-bg: #fde7e7;
+  --box-primary: #3b82f6;
+  --box-neutral: #9a9aa0;
+  --box-neutral-bg: #ebebee;
+
+  // 尺寸
+  --box-radius-card: 18px;
+  --box-radius-inner: 14px;
+  --box-radius-pill: 999px;
+  --box-page-padding: 16px;
+  --box-gap: 12px;
+  // 底部 Tab 栏高度 + 安全区，页面需要预留
+  --box-tabbar-height: 58px;
+}
+
+// 深色变量单独定义：设置页的深色模式开关只切换 <html data-theme>，
+// 媒体查询则作为未选择时的系统跟随兜底。
+.dark-tokens() {
+  --box-page-bg: #0f0f11;
+  --box-card-bg: #1c1c1f;
+  --box-subtle-bg: #232326;
+  --box-inset-bg: #2a2a2e;
+
+  --box-text: #f2f2f4;
+  --box-text-secondary: #9a9aa1;
+  --box-text-tertiary: #74747b;
+
+  --box-divider: rgba(255, 255, 255, 0.08);
+  --box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.24);
+
+  --box-success: #34d27b;
+  --box-success-bg: #12301f;
+  --box-warning: #e0b055;
+  --box-warning-bg: #33280f;
+  --box-danger: #f87171;
+  --box-danger-bg: #3a1a1c;
+  --box-primary: #60a5fa;
+  --box-neutral: #8a8a91;
+  --box-neutral-bg: #26262a;
+}
+
+// 开关显式指定时的优先级最高，两个方向都要能覆盖系统偏好
+:root[data-theme='dark'] {
+  .dark-tokens();
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+// 尚未切换过开关时跟随系统
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    .dark-tokens();
+  }
+}

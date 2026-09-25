@@ -1,0 +1,139 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--box-gap);
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.switchLabel {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--box-text);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.groupTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--box-text);
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+// 截图里每个输入框是灰底 + 小标签在上方的胶囊块，
+// 聚焦时整块换成白底 + 1px 蓝色描边（标签同时变蓝）。
+.field {
+  display: block;
+  // 左右内边距需大于 --box-radius-inner(14px)，
+  // 否则首尾字符会落在圆弧区域里被切掉半个字形
+  padding: 7px 16px 5px;
+  border-radius: var(--box-radius-inner);
+  background: var(--box-inset-bg);
+  // 超出圆角的部分裁掉，滚动中的字符不会溢出到胶囊外面
+  overflow: hidden;
+  // 默认透明描边占位，聚焦时只换颜色，避免块高跳动
+  box-shadow: inset 0 0 0 1px transparent;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:focus-within {
+    background: var(--box-card-bg);
+    box-shadow: inset 0 0 0 1px var(--box-primary);
+  }
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 12px;
+  color: var(--box-text-secondary);
+  line-height: 1.3;
+  transition: color 0.15s ease;
+
+  .field:focus-within & {
+    color: var(--box-primary);
+  }
+}
+
+.fieldRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+// 文字贴着标签左对齐；链接很长时省略，纵向滚动交给输入框自身。
+//
+// 这里的关键是让 input 元素本身保持"直角矩形"：
+// antd 6 会把 ConfigProvider 的 borderRadius(14) 下发给 .ant-input，
+// 于是 input 元素自己也是 14px 圆角 + overflow: clip，
+// 光标和文字会被这个内层圆角裁掉，聚焦时就能看到一圈"内框弧度"。
+// 外层 .field 才是唯一的圆角来源，所以这里把内层圆角/边框/描边全部清零。
+//
+// 注：没有 prefix/suffix/allowClear 时，antd 的 <Input> 就是裸的 <input>，
+// className 直接落在该元素上，所以不需要再写 .input input 的后代选择器。
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 !important;
+  font-size: 16px;
+  color: var(--box-text);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  // 直角 + 不裁剪，光标不会在两端被切出弧度
+  border-radius: 0 !important;
+  overflow: visible !important;
+  // 路径很长时用省略号，而不是把胶囊块撑开
+  text-overflow: ellipsis;
+}
+
+.remove {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  // 与「添加一项」的加号统一成灰色图标，避免抢走输入内容的注意力
+  color: var(--box-text-tertiary);
+  font-size: 18px;
+  cursor: pointer;
+
+  &:active {
+    color: var(--box-danger);
+  }
+}
+
+.add {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  color: var(--box-text-tertiary);
+  font-size: 16px;
+  cursor: pointer;
+
+  &:active {
+    color: var(--box-text-secondary);
+  }
+}

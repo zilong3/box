@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 换行符统一为 LF
+#
+# 历史上 module.prop 与 box/sing-box/config.json 是 CRLF（且 module.prop 是
+# CRLF/LF 混用，由 release 工作流里 dos2unix + sed 造成），fork 已全部转为 LF。
+# 这里固定住，避免以后在 Windows 上编辑或某些工具又把 CRLF 带进来：
+#   - 仓库对象里一律存 LF
+#   - 检出到工作区也是 LF
+# ─────────────────────────────────────────────────────────────────────────────
+* text=auto eol=lf
+
+# 二进制文件不做任何换行符/文本转换（text=auto 通常能自动识别，这里显式列出以防万一）
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.bmp   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.zip   binary
+*.jar   binary
+*.apk   binary
+*.so    binary
+*.dex   binary

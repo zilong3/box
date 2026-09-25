@@ -1,0 +1,16 @@
+.scroll {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  // 顶部安全区（状态栏 / 刘海）
+  padding-top: env(safe-area-inset-top);
+}
+
+.inner {
+  // 底部预留 Tab 栏高度，最后一个卡片不会被遮住
+  padding: 12px var(--box-page-padding)
+    calc(var(--box-tabbar-height) + 24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--box-gap);
+}

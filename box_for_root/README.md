@@ -39,7 +39,7 @@
 
 - `box.service`: 启停、重启、状态与定时任务控制
 - `box.iptables`: 透明代理规则启用、重建、清理
-- `box.tool`: 订阅更新、Geo 更新、核心更新、配置检查、WebUI 相关维护
+- `box.tool`: 订阅更新、Geo 更新、核心更新、配置检查、内核面板（Dashboard）更新
 
 ## 文档与社区
 

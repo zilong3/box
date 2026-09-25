@@ -1,0 +1,58 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--box-gap);
+}
+
+.configHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.configTitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--box-text);
+}
+
+.configItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+}
+
+.configName {
+  font-size: 16px;
+  color: var(--box-text);
+  // 配置名可能很长，省略处理
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check {
+  flex: 0 0 auto;
+  color: var(--box-primary);
+  font-size: 18px;
+}
+
+// 窄屏兜底：选项菜单的固定宽度和默认 16px 字号在小屏上偏大，
+// 这里收一收间距，同时让过长的选项文案可以换行而不是被裁掉。
+@media (max-width: 359px) {
+  .body {
+    --box-gap: 10px;
+  }
+}

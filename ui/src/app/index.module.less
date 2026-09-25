@@ -1,0 +1,10 @@
+.app {
+  // 父级 <AntdApp> 渲染出的 .ant-app 没有高度，height:100% 会退化成内容高度，
+  // 于是整屏抽屉与内嵌 iframe 都只占内容高。这里直接跟随视口，不依赖父级。
+  height: 100vh;
+  // 面板是移动端优先的，宽屏下限制最大宽度并居中，避免卡片被拉得过宽
+  max-width: 560px;
+  margin: 0 auto;
+  background: var(--box-page-bg);
+}
+

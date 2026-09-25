@@ -1,0 +1,153 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  min-height: 56px;
+  box-sizing: border-box;
+  // 行本身可点击时给出键盘焦点反馈
+  outline: none;
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--box-primary);
+  }
+}
+
+.clickable {
+  cursor: pointer;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+}
+
+.label {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--box-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  font-size: 15px;
+  color: var(--box-text-secondary);
+}
+
+// 下拉值：右侧灰色文字 + 上下箭头，对齐截图里的纯文本样式
+.selectValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--box-text-secondary);
+}
+
+.selectText {
+  font-size: 16px;
+  max-width: 45vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 用两条边框拼出系统风格的上下箭头（chevron.up.chevron.down）
+.chevron {
+  position: relative;
+  flex: 0 0 auto;
+  width: 10px;
+  height: 15px;
+  color: var(--box-text-tertiary);
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    border-right: 1.6px solid currentColor;
+    border-bottom: 1.6px solid currentColor;
+    border-radius: 1px;
+  }
+
+  &::before {
+    top: 0;
+    transform: rotate(225deg);
+  }
+
+  &::after {
+    bottom: 0;
+    transform: rotate(45deg);
+  }
+}
+
+// 弹出菜单遮罩：只把后方压暗，点击任意处关闭
+.menuBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+// 选项菜单：圆角卡片浮层，位置与宽度由 JS 按选项行计算
+.menu {
+  position: fixed;
+  z-index: 1101;
+  padding: 6px 0;
+  border-radius: 16px;
+  background: var(--box-card-bg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  overflow-y: auto;
+  // 选项滚动时不影响后方页面
+  overscroll-behavior: contain;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  color: var(--box-text);
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background: var(--box-subtle-bg);
+    }
+  }
+}
+
+.menuName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 选中项：蓝色文字 + 右侧蓝色对勾，与截图一致
+.menuItemActive {
+  color: var(--box-primary);
+}
+
+.menuCheck {
+  flex: 0 0 auto;
+  font-size: 18px;
+  color: var(--box-primary);
+}

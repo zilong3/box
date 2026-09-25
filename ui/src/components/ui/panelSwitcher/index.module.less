@@ -1,0 +1,101 @@
+// 遮罩：压暗后方，但不至于看不清顶栏
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+// 底部升起的弹层，圆角与参考图一致
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  padding: 0 var(--box-page-padding) calc(20px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: var(--box-card-bg);
+}
+
+.handle {
+  width: 44px;
+  height: 5px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background: var(--box-inset-bg);
+}
+
+.heading {
+  padding: 16px 0 14px;
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--box-text);
+}
+
+// 选项整块浅灰背景，行与行之间留空隙
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 20px;
+  background: var(--box-subtle-bg);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 12px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+
+  &:active {
+    background: var(--box-inset-bg);
+  }
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 22px;
+  color: var(--box-text);
+  line-height: 1;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  // 吃掉剩余宽度，长地址才能换行而不是把对勾挤出去
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.name {
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--box-text);
+}
+
+.url {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--box-text-secondary);
+  // 长地址换行显示，与参考图一致
+  word-break: break-all;
+}
+
+.check {
+  flex: 0 0 auto;
+  font-size: 20px;
+  color: var(--box-primary);
+}

@@ -1,0 +1,18 @@
+// 带图标的标签，图标与文字基线对齐
+.withIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+
+  :global(.anticon),
+  svg {
+    font-size: 21px;
+    color: var(--box-text);
+  }
+}
+
+.arrow {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--box-text-tertiary);
+}

@@ -1,0 +1,197 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--box-gap);
+}
+
+// 顶部分段按钮：三档等宽，选中项白底 + 描边，与截图一致
+.segment {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 4px;
+  border-radius: var(--box-radius-pill);
+  background: var(--box-inset-bg);
+}
+
+.segmentItem {
+  padding: 10px 4px;
+  border: none;
+  border-radius: var(--box-radius-pill);
+  background: transparent;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--box-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+}
+
+.segmentActive {
+  background: var(--box-card-bg);
+  color: var(--box-text);
+  box-shadow: var(--box-shadow);
+}
+
+// 搜索框：灰色胶囊 + 左侧放大镜 + 右侧一键清空，位于标题下方、分段按钮上方
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--box-radius-pill);
+  background: var(--box-inset-bg);
+  // 聚焦时整块换成白底 + 蓝色描边，与订阅管理的输入框保持一致
+  box-shadow: inset 0 0 0 1px transparent;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &:focus-within {
+    background: var(--box-card-bg);
+    box-shadow: inset 0 0 0 1px var(--box-primary);
+  }
+}
+
+.searchIcon {
+  flex: 0 0 auto;
+  color: var(--box-text-tertiary);
+  font-size: 18px;
+  transition: color 0.15s ease;
+
+  .searchBar:focus-within & {
+    color: var(--box-primary);
+  }
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--box-text);
+  font-size: 17px;
+  outline: none;
+
+  &::placeholder {
+    color: var(--box-text-tertiary);
+  }
+}
+
+.searchClear {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--box-text-tertiary);
+  font-size: 18px;
+  cursor: pointer;
+
+  &:active {
+    color: var(--box-text-secondary);
+  }
+}
+
+.empty {
+  padding: 32px 16px;
+  font-size: 15px;
+  color: var(--box-text-secondary);
+  text-align: center;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--box-gap);
+}
+
+// 每行是一张独立圆角卡片：图标 + 名称/包名 + 右侧勾选
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--box-radius-card);
+  background: var(--box-card-bg);
+  box-shadow: var(--box-shadow);
+}
+
+// 拿不到真实应用图标，先用名称首字占位
+.icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--box-primary);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  // 包名很长时省略而不是把行撑开
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.name {
+  font-size: 17px;
+  color: var(--box-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.package {
+  font-size: 15px;
+  color: var(--box-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 勾选圈：未选中是浅灰圆点，选中是蓝色 + 白色对勾
+.check {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--box-neutral-bg);
+  color: transparent;
+  font-size: 16px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.checkOn {
+  background: var(--box-primary);
+  color: #ffffff;
+}
+
+// 核心模式下勾选框置灰：仍能看出选中状态，但不再响应点击
+.checkDisabled {
+  cursor: default;
+  opacity: 0.4;
+}

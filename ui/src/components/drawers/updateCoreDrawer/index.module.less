@@ -1,0 +1,78 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--box-gap);
+}
+
+.stableCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stableRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.stableLabel {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--box-text);
+}
+
+.channelCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.channel {
+  padding: 14px 12px;
+  border: none;
+  border-radius: var(--box-radius-inner);
+  background: transparent;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--box-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+}
+
+.active {
+  background: var(--box-subtle-bg);
+}
+
+.footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+// 截图里取消是灰底、确定是蓝底大圆角
+.cancel {
+  height: 46px;
+  border: none;
+  border-radius: var(--box-radius-inner);
+  background: var(--box-inset-bg);
+  color: var(--box-text);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.confirm {
+  height: 46px;
+  border: none;
+  border-radius: var(--box-radius-inner);
+  font-size: 17px;
+  font-weight: 600;
+}

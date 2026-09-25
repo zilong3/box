@@ -1,0 +1,223 @@
+.banner {
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  border-radius: var(--box-radius-card);
+  // 底部多留 12px 作为进度条的固定槽位：进度条只出现在过渡态，
+  // 若让它压进内容区，过渡结束的一瞬间就会把下面的操作条整体顶下去。
+  padding: 18px 20px 30px;
+  // 高度必须是状态无关的定值：运行中比过渡态多一行"运行时长"，
+  // 之前只给 min-height: 158px，那一行会把卡片撑高，导致整页下移。
+  height: 158px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  --banner-fg: var(--box-neutral);
+  --banner-bg: var(--box-neutral-bg);
+
+  background: var(--banner-bg);
+  color: var(--banner-fg);
+  // 状态切换只换配色，高度与位置保持不动
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.running {
+  --banner-fg: #16a34a;
+  --banner-bg: var(--box-success-bg);
+}
+
+// 只有已停止态的横幅可点击（打开基础代理配置抽屉），
+// 这里给一点按下反馈，让"能点"这件事在视觉上说得通。
+.interactive {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.12s ease;
+
+  &:active {
+    transform: scale(0.99);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--banner-fg);
+    outline-offset: 2px;
+  }
+}
+
+.stopped {
+  --banner-fg: #6b6b70;
+  --banner-bg: var(--box-neutral-bg);
+}
+
+.starting,
+.stopping {
+  --banner-fg: #8a6100;
+  --banner-bg: var(--box-warning-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .running {
+    --banner-fg: var(--box-success);
+  }
+
+  .stopped {
+    --banner-fg: #a1a1a8;
+  }
+
+  .starting,
+  .stopping {
+    --banner-fg: var(--box-warning);
+  }
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+  // 让文字压在插画之上
+  position: relative;
+  z-index: 1;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--banner-fg);
+  flex: 0 0 auto;
+}
+
+.statusText {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.3px;
+  // 状态词切换（正在启动 → 运行中）时淡入，避免文字硬切造成的跳变。
+  // key={phase} 会重建节点，动画因此每次状态变更都重新播一遍。
+  animation: box-fade-in 0.24s ease-out;
+}
+
+@keyframes box-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.uptime {
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 1.35;
+  // 核心名/配置名用正文色，与彩色状态标题区分开
+  color: var(--box-text);
+  opacity: 0.9;
+}
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--banner-fg);
+  // box-spin 必须在本文件里定义：CSS Modules 会把 @keyframes 按文件重命名，
+  // 借用别的 .module.less 里的同名动画是解析不到的（动画名对不上，圆圈就不转）。
+  animation: box-spin 0.9s linear infinite;
+}
+
+@keyframes box-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.artWrap {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  // 插画右下半出界，贴合截图里被卡片裁掉的观感
+  margin: 0 -32px -34px 0;
+}
+
+.art {
+  width: 132px;
+  height: 132px;
+  display: block;
+  // 插画随状态切换淡入，消掉"空白 → 突然冒出绿色对勾"的跳变
+  animation: box-art-in 0.28s ease-out;
+}
+
+@keyframes box-art-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.progress {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 14px;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--banner-fg) 22%, transparent);
+  overflow: hidden;
+}
+
+.progressInner {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--banner-fg);
+  animation: box-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes box-slide {
+  0% {
+    transform: translateX(-105%);
+  }
+  100% {
+    transform: translateX(240%);
+  }
+}
+
+// 启停失败时的原因提示，贴在横幅下方，不挤压横幅本身的高度
+.error {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: var(--box-radius-card);
+  background: var(--box-danger-bg);
+  color: var(--box-danger);
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-all;
+}

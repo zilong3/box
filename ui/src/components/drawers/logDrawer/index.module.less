@@ -1,0 +1,59 @@
+.viewer {
+  background: var(--box-card-bg);
+  border-radius: var(--box-radius-card);
+  padding: 16px;
+  box-shadow: var(--box-shadow);
+  // 日志用等宽字体，长路径可换行不撑破布局
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-user-select: text;
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+// "更多"按钮的定位锚点，本身不占额外空间
+.moreWrap {
+  display: inline-flex;
+}
+
+.line {
+  // 每条日志独占一行，长路径在行内换行
+  display: block;
+  color: var(--box-primary);
+}
+
+.time {
+  white-space: nowrap;
+}
+
+.level {
+  white-space: nowrap;
+  margin-left: 4px;
+}
+
+.message {
+  margin-left: 4px;
+}
+
+.info {
+  color: var(--box-primary);
+}
+
+.debug {
+  color: var(--box-text-secondary);
+}
+
+.warning {
+  color: #b8860b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .warning {
+    color: var(--box-warning);
+  }
+}
+
+.error {
+  color: var(--box-danger);
+}

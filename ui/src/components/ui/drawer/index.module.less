@@ -1,0 +1,80 @@
+// 整屏抽屉：覆盖 antd 默认的顶部圆角与内边距，做出原生二级页的观感
+.drawer {
+  :global(.ant-drawer-content) {
+    border-radius: 0;
+    background: var(--box-page-bg);
+  }
+
+  :global(.ant-drawer-body) {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--box-page-bg);
+  // 顶部留出状态栏 / 刘海安全区
+  padding-top: env(safe-area-inset-top);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px var(--box-page-padding) 4px;
+  flex: 0 0 auto;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--box-text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  // 抽屉内容自带底部安全区，避免被手势条遮挡
+  padding: 0 var(--box-page-padding) calc(24px + env(safe-area-inset-bottom));
+}
+
+.title {
+  margin: 0 0 14px;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+  color: var(--box-text);
+}
+
+.footer {
+  flex: 0 0 auto;
+  padding: 12px var(--box-page-padding) calc(16px + env(safe-area-inset-bottom));
+  background: var(--box-page-bg);
+}

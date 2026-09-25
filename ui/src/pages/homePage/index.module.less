@@ -1,0 +1,9 @@
+// 首页内容容器：只是用来在打开内嵌面板时整块隐藏，本身不参与布局。
+// 内嵌面板自身的样式在 components/ui/embeddedPanel 里。
+.page {
+  height: 100%;
+
+  &[hidden] {
+    display: none;
+  }
+}

@@ -1,0 +1,66 @@
+// 全屏遮罩：比截图里的压暗程度略轻，保持后方日志可辨认
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.menu {
+  position: fixed;
+  z-index: 1101;
+  // 顶部/右侧位置由 JS 按锚点计算，这里给一个兜底值
+  top: 72px;
+  right: 16px;
+  // 菜单宽度贴合最长文件名，对勾紧跟在文字之后
+  padding: 6px 0;
+  border-radius: 18px;
+  background: var(--box-card-bg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  // 对勾紧跟文字，而不是被推到最右侧
+  justify-content: flex-start;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 18px;
+  border: none;
+  background: transparent;
+  color: var(--box-text);
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+}
+
+.name {
+  // 保持一行，让菜单宽度由最长文件名决定
+  white-space: nowrap;
+}
+
+// 选中项：蓝色文字 + 蓝色对勾
+.active {
+  color: var(--box-primary);
+}
+
+.check {
+  flex: 0 0 auto;
+  font-size: 17px;
+  color: var(--box-primary);
+}
+
+// 空态：run 目录下还没有任何 .log（例如服务从未启动过）
+.empty {
+  padding: 14px 18px;
+  font-size: 15px;
+  color: var(--box-text-secondary);
+  white-space: nowrap;
+}

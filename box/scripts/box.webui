@@ -1,0 +1,508 @@
+#!/system/bin/sh
+
+# ════════════════════════════════════════════════════════════════════════════
+# box.webui - WebUI（控制面板）唯一命令入口
+# ════════════════════════════════════════════════════════════════════════════
+#
+# 控制面板（ui/ 里的 React 应用）不直接调用 box.service / box.iptables / box.tool，
+# 而是统一走这里。这样做的原因：
+#
+#   1. 面板手里只有一个白名单，拼不出任意命令，WebView 被注入也提不了权；
+#   2. 面板与模块的耦合面收窄到本文件的一张表（BOX_WEBUI_ACTIONS），
+#      底层脚本改子命令时只改这里，不用去动前端；
+#   3. 危险动作（更新核心、写规则文件）的二次确认、串行化、超时集中处理。
+#
+# 用法:
+#   box.webui <action> [参数...]
+#   box.webui list                 # 列出全部可用 action
+#
+# 约定:
+#   - 成功: 退出码 0
+#   - 失败: 非 0，且 stderr/日志里有原因
+#   - 状态类动作把结构化结果写成 `KSU_<TAG>|字段|字段...` 的单行输出，
+#     由前端解析；其余动作的人类可读输出照常写日志。
+#
+# 维护提示: 新增面板功能 = 在下面的 case 里加一个分支，并在
+# `ui/src/bridge/api.ts` 里加一个同名方法，两边保持一致。
+#
+# 复用约定（重要）: 本文件只做「白名单校验 + 参数防注入 + 输出转结构化」，
+# 具体能力一律下沉到既有脚本，不要在这里重写一遍：
+#
+#   - 启停核心      → box.service  {start|stop|restart}
+#   - 透明代理规则  → box.iptables {enable|disable|renew}
+#   - 配置校验      → box.tool check
+#   - 核心/配置路径 → settings.ini 的 bin_name / bin_dir / *_config
+#   - 日志文件清单  → settings.ini 的 bin_list / box_log + box.tool 的 TOOL_LOG
+#
+# 底层脚本改了子命令，只改这里的调用；改了核心或日志约定，面板自动跟着走。
+# ════════════════════════════════════════════════════════════════════════════
+
+scripts_dir="${0%/*}"
+file_settings="/data/adb/box/settings.ini"
+
+if [ -r "${file_settings}" ]; then
+  . "${file_settings}"
+fi
+
+# settings.ini 里没有 log() 时的兜底（例如模块刚装好、配置被清空）
+if ! command -v log >/dev/null 2>&1; then
+  log() {
+    local level="$1"
+    shift
+    printf '%s [%s]: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "${level}" "$*"
+  }
+fi
+
+box_dir="${box_dir:-/data/adb/box}"
+box_run="${box_run:-${box_dir}/run}"
+box_run_state="${box_run_state:-${box_run}/state}"
+
+service_script="${scripts_dir}/box.service"
+iptables_script="${scripts_dir}/box.iptables"
+tool_script="${scripts_dir}/box.tool"
+
+# 模块信息文件，与 box.service 的 PROPFILE 是同一个（它用于 set_description 写状态）
+prop_file="/data/adb/modules/box_for_root/module.prop"
+
+# 面板动作白名单。`list` 会把它原样打印出来，前端据此自检两边是否同步。
+BOX_WEBUI_ACTIONS="
+status|读取服务状态
+start|启动核心并下发透明代理规则
+stop|清理规则并停止核心
+restart|重启核心并重建规则
+reload|按当前配置重建透明代理规则
+logs|列出可查看的日志文件
+tail|读取某个日志文件的末尾内容
+clear|清空某个日志文件
+version|读取模块与核心版本信息
+check|校验当前核心配置文件
+"
+
+# ── 工具函数 ────────────────────────────────────────────────────────────────
+
+# 面板只应看到文本，这里统一剥掉 ANSI 颜色码与 Windows 换行。
+#
+# 关键是 ESC 字符怎么进 sed 表达式：sed 本身不认 \x1b，\033 也要看实现。
+# 唯一可移植的做法是用 printf 先造出一个真的 ESC 字节（0x1b）再拼进表达式。
+# 设备上日志其实很少带色（log() 只在 tty 下着色），但核心自己的输出会带。
+strip_ansi() {
+  local esc
+  esc="$(printf '\033')"
+
+  if command -v busybox >/dev/null 2>&1; then
+    busybox sed -e "s/${esc}\[[0-9;]*[a-zA-Z]//g" -e 's/\r$//'
+  else
+    sed -e "s/${esc}\[[0-9;]*[a-zA-Z]//g" -e 's/\r$//'
+  fi
+}
+
+# 报错。必须写 stderr：stdout 是给面板解析的数据通道（KSU_* 记录 + 日志正文），
+# 混进一句 Error 会被前端当成正文，甚至覆盖掉真正的错误原因。
+fail() {
+  printf '%s [Error]: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2
+}
+
+# 字段里的分隔符会破坏 KSU_* 协议，统一替换成空格
+field_safe() {
+  printf '%s' "$1" | tr '|\n' '  '
+}
+
+# 输出一行 `KSU_TAG|a|b|c`
+emit_record() {
+  local tag="$1"
+  shift
+  local line="" value
+  for value in "$@"; do
+    line="${line}|$(field_safe "${value}")"
+  done
+  printf 'KSU_%s%s\n' "${tag}" "${line}"
+}
+
+# 解析日志文件对应的绝对路径。
+#
+# 只接受 run 目录下的裸文件名：面板传进来的值一律当作不可信输入，
+# 不允许出现 / 或 .. ，否则面板就能读到模块目录以外的文件。
+# 文件必须真实存在于 ${box_run} 且以 .log 结尾——这正是 do_logs 列出来的集合，
+# 所以「列得出」就一定「读得到」，不会出现列表里有、点进去报不存在的情况。
+resolve_log_path() {
+  local name="$1"
+  local path
+
+  case "${name}" in
+    ''|*/*|*..*|.*) return 1 ;;
+    *.log) ;;
+    *) return 1 ;;
+  esac
+
+  path="${box_run}/${name}"
+  [ -f "${path}" ] || return 1
+
+  printf '%s\n' "${path}"
+}
+
+# ── 状态探测 ────────────────────────────────────────────────────────────────
+
+# 与 box.service 的 box_bin_status 一致：优先按进程名找，退回到 pid 文件。
+resolve_pid() {
+  local core="$1"
+  local pid=""
+
+  if [ -n "${core}" ]; then
+    pid="$(busybox pidof "${core}" 2>/dev/null | busybox awk '{print $1}')"
+  fi
+
+  if [ -z "${pid}" ] && [ -r "${box_pid:-${box_run}/box.pid}" ]; then
+    local candidate
+    candidate="$(cat "${box_pid:-${box_run}/box.pid}" 2>/dev/null)"
+    if [ -n "${candidate}" ] && [ -d "/proc/${candidate}" ]; then
+      pid="${candidate}"
+    fi
+  fi
+
+  printf '%s\n' "${pid}"
+}
+
+# 运行时长 = 开机时长 - 进程启动时刻。
+# /proc/<pid>/stat 第 22 字段是相对开机时刻的 jiffies，除以 CLK_TCK 得到秒。
+resolve_uptime() {
+  local pid="$1"
+  local ticks="100"
+
+  [ -n "${pid}" ] && [ -r "/proc/${pid}/stat" ] || { printf '0\n'; return 0; }
+
+  local clk
+  clk="$(getconf CLK_TCK 2>/dev/null)"
+  case "${clk}" in ''|*[!0-9]*) ;; *) ticks="${clk}" ;; esac
+
+  busybox awk -v t="${ticks}" '
+    BEGIN { uptime = 0; start = 0 }
+    NR == FNR { uptime = $1; next }
+    NF > 40 { start = $22 }
+    END {
+      v = uptime - start / t
+      # 负数说明读表期间进程换过，超过一年说明字段解析错了，一律当作 0
+      if (v < 0 || v > 31536000) v = 0
+      printf "%d", v
+    }
+  ' /proc/uptime "/proc/${pid}/stat" 2>/dev/null
+}
+
+# 核心版本。二进制路径与「mihomo 用 -v、其余用 version 子命令」的规则
+# 都跟 settings.ini / box.service 的 box_check_bin 一致，这里不再自己推断。
+resolve_version() {
+  local core="$1"
+  local bin="${bin_dir:-${box_dir}/bin}/${core}"
+
+  [ -n "${core}" ] && [ -x "${bin}" ] || return 0
+
+  if [ "${core}" = "mihomo" ]; then
+    "${bin}" -v 2>/dev/null | busybox head -n 1
+  else
+    "${bin}" version 2>/dev/null | busybox head -n 1
+  fi
+}
+
+# 当前核心正在用的配置文件。
+# 路径规则不在本文件里重写一遍：settings.ini 已经按 bin_name 给好了
+# mihomo_config / sing_config / xray_config / v2fly_config / hysteria_config，
+# 这里只做「把当前核心对应的那个变量取出来」的分发，兜底值同样跟 settings.ini 走。
+resolve_config_path() {
+  local core="$1"
+
+  case "${core}" in
+    mihomo)    printf '%s' "${mihomo_config:-${box_dir}/mihomo/config.yaml}" ;;
+    sing-box)  printf '%s' "${sing_config:-${box_dir}/sing-box/config.json}" ;;
+    xray)      printf '%s' "${xray_config:-${box_dir}/xray/config.json}" ;;
+    v2fly)     printf '%s' "${v2fly_config:-${box_dir}/v2fly/config.json}" ;;
+    hysteria)  printf '%s' "${hysteria_config:-${box_dir}/hysteria/config.yaml}" ;;
+    *)         printf '' ;;
+  esac
+}
+
+do_status() {
+  local core="${bin_name:-}"
+  local pid
+  local uptime
+  local version
+
+  pid="$(resolve_pid "${core}")"
+  uptime="$(resolve_uptime "${pid}")"
+  version="$(resolve_version "${core}" | strip_ansi)"
+
+  emit_record STATUS \
+    "${pid}" \
+    "${uptime}" \
+    "${core}" \
+    "${network_mode:-}" \
+    "${proxy_mode:-}" \
+    "$(resolve_config_path "${core}")" \
+    "${version}"
+}
+
+# ── 日志 ────────────────────────────────────────────────────────────────────
+
+# 列出 run 目录下真实的 *.log 文件。
+#
+# 不再维护一份手写白名单：白名单一旦和实际落盘的文件名漂移（底层改了核心名、
+# 加了新日志、或 .old.log 轮转后没生成），面板就会出现「列不出」或
+# 「列出来却读不到」。直接扫目录，列出来的集合与可读集合天然一致。
+#
+# 输出一行一个裸文件名，按名字排序，便于前端稳定展示。
+list_log_files() {
+  local path name
+
+  [ -d "${box_run}" ] || return 0
+
+  for path in "${box_run}"/*.log; do
+    # 目录为空时 glob 不展开，这里要挡掉字面量
+    [ -f "${path}" ] || continue
+    name="${path##*/}"
+
+    # 当前内核的日志排最前，其余按名字排在后面
+    if [ -n "${bin_name}" ] && [ "${name}" = "${bin_name}.log" ]; then
+      printf '%s\n' "${name}"
+    fi
+  done
+
+  for path in "${box_run}"/*.log; do
+    [ -f "${path}" ] || continue
+    name="${path##*/}"
+
+    if [ -n "${bin_name}" ] && [ "${name}" = "${bin_name}.log" ]; then
+      continue
+    fi
+
+    printf '%s\n' "${name}"
+  done
+}
+
+# 取文件的字节数与修改时间（秒）。
+# 优先 busybox stat（模块内的统一约定），没有就退回系统 stat，
+# 再取不到就给 0——面板只需要一个大概值，缺了不该让整条记录消失。
+stat_size() {
+  local file="$1"
+  local out
+
+  if command -v busybox >/dev/null 2>&1; then
+    out="$(busybox stat -c %s "${file}" 2>/dev/null)"
+  else
+    out="$(stat -c %s "${file}" 2>/dev/null)"
+  fi
+
+  case "${out}" in
+    ''|*[!0-9]*) printf '0\n' ;;
+    *) printf '%s\n' "${out}" ;;
+  esac
+}
+
+stat_mtime() {
+  local file="$1"
+  local out
+
+  if command -v busybox >/dev/null 2>&1; then
+    out="$(busybox stat -c %Y "${file}" 2>/dev/null)"
+  else
+    out="$(stat -c %Y "${file}" 2>/dev/null)"
+  fi
+
+  case "${out}" in
+    ''|*[!0-9]*) printf '0\n' ;;
+    *) printf '%s\n' "${out}" ;;
+  esac
+}
+
+do_logs() {
+  local name path size mtime
+
+  for name in $(list_log_files); do
+    path="${box_run}/${name}"
+    size="$(stat_size "${path}")"
+    mtime="$(stat_mtime "${path}")"
+    emit_record LOG "${name}" "${size}" "${mtime}"
+  done
+
+  return 0
+}
+
+do_tail() {
+  local name="$1"
+  local lines="${2:-200}"
+  local path total body
+
+  if [ -z "${name}" ]; then
+    fail "tail: 缺少日志文件名"
+    return 1
+  fi
+
+  # resolve_log_path 会同时校验「裸文件名」与「文件真实存在」
+  path="$(resolve_log_path "${name}")" || {
+    fail "tail: 日志不存在或不允许读取 <${name}>"
+    return 1
+  }
+
+  # 行数只接受正整数，避免把选项注入到 tail
+  case "${lines}" in
+    ''|*[!0-9]*) lines=200 ;;
+  esac
+  [ "${lines}" -gt 0 ] 2>/dev/null || lines=200
+  [ "${lines}" -le 5000 ] 2>/dev/null || lines=5000
+
+  # 记录里带上文件总行数：面板据此知道日志有多长、是不是被截断了。
+  # 用 busybox 读；万一 busybox 不可用，退回系统 wc，再不行就当 0。
+  if command -v busybox >/dev/null 2>&1; then
+    total="$(busybox wc -l < "${path}" 2>/dev/null)"
+  else
+    total="$(wc -l < "${path}" 2>/dev/null)"
+  fi
+  case "${total}" in
+    ''|*[!0-9]*) total=0 ;;
+  esac
+
+  # 空文件也要正常返回：给一条 KSU_TAIL 记录 + 空正文，
+  # 让面板显示「暂无内容」而不是报错。
+  emit_record TAIL "${name}" "${lines}" "${total}"
+
+  # 正文必须无条件输出：读日志是面板最基础的功能，不能因为
+  # sed/busybox 缺失或某个子命令失败就一行都不显示。
+  # 先拿到原始内容，再尽力剥颜色码（剥失败也要原样输出）。
+  if command -v busybox >/dev/null 2>&1; then
+    body="$(busybox tail -n "${lines}" "${path}" 2>/dev/null)"
+  else
+    body="$(tail -n "${lines}" "${path}" 2>/dev/null)"
+  fi
+
+  if [ -n "${body}" ]; then
+    printf '%s\n' "${body}" | strip_ansi 2>/dev/null || printf '%s\n' "${body}"
+  fi
+
+  # 显式收尾：上面管道的退出码可能来自 sed，别让它污染脚本退出码
+  return 0
+}
+
+# 清空某个日志文件。保留文件本身（`: >` 而不是 rm），
+# 避免核心正在写的 fd 失效、或脚本侧 append 时目录不存在。
+do_clear() {
+  local name="$1"
+  local path
+
+  if [ -z "${name}" ]; then
+    fail "clear: 缺少日志文件名"
+    return 1
+  fi
+
+  path="$(resolve_log_path "${name}")" || {
+    fail "clear: 日志不存在或不允许操作 <${name}>"
+    return 1
+  }
+
+  if ! : > "${path}" 2>/dev/null; then
+    fail "clear: 无法清空日志 <${path}>"
+    return 1
+  fi
+
+  emit_record CLEAR "${name}"
+  return 0
+}
+
+# ── 版本信息 ────────────────────────────────────────────────────────────────
+
+do_version() {
+  local core="${bin_name:-}"
+  local module_version=""
+
+  # module.prop 的路径与 box.service 的 PROPFILE 一致
+  if [ -r "${prop_file}" ]; then
+    module_version="$(sed -n 's/^version=//p' "${prop_file}" | busybox head -n 1)"
+  fi
+
+  emit_record VERSION \
+    "${module_version}" \
+    "${core}" \
+    "$(resolve_version "${core}" | strip_ansi)" \
+    "${network_mode:-}" \
+    "${proxy_mode:-}" \
+    "${ipv6:-}"
+}
+
+# ── 动作分发 ────────────────────────────────────────────────────────────────
+
+# 每个动作都通过白名单执行，面板不能借此调到别的子命令
+dispatch() {
+  local action="$1"
+  shift
+
+  case "${action}" in
+    status)
+      do_status
+      ;;
+
+    start)
+      # 与 action.sh 的 start_service 一致：启核心 + 下发规则。
+      # 不调 start.sh，那是开机脚本（会等 packages.xml、会看 boot_auto_start）。
+      "${service_script}" start || return 1
+      "${iptables_script}" enable || return 1
+      ;;
+
+    stop)
+      # 规则先撤再停核心，与 action.sh 的 stop_service 一致
+      "${iptables_script}" disable || return 1
+      "${service_script}" stop || return 1
+      ;;
+
+    restart)
+      # box.service restart 内部已经是 iptables disable → stop → start → iptables renew
+      "${service_script}" restart || return 1
+      ;;
+
+    reload)
+      # 用 renew（按当前配置重建规则），而不是 box.tool reload（重读配置）
+      "${iptables_script}" renew || return 1
+      ;;
+
+    logs)
+      do_logs
+      ;;
+
+    tail)
+      do_tail "$@"
+      ;;
+
+    clear)
+      do_clear "$@"
+      ;;
+
+    version)
+      do_version
+      ;;
+
+    check)
+      # 交给 box.tool，别再自己拼核心的 check 子命令
+      "${tool_script}" check
+      ;;
+
+    list)
+      printf '%s\n' "${BOX_WEBUI_ACTIONS}" | while IFS='|' read -r name desc; do
+        [ -n "${name}" ] || continue
+        emit_record ACTION "${name}" "${desc}"
+      done
+      ;;
+
+    ''|-h|--help|help)
+      echo "用法: $0 <action> [参数...]"
+      echo "可用 action:"
+      printf '%s\n' "${BOX_WEBUI_ACTIONS}" | while IFS='|' read -r name desc; do
+        [ -n "${name}" ] || continue
+        printf '  %-10s %s\n' "${name}" "${desc}"
+      done
+      ;;
+
+    *)
+      fail "box.webui: 未知 action <${action}>"
+      echo "用法: $0 {$(printf '%s' "${BOX_WEBUI_ACTIONS}" | busybox awk -F'|' 'NF{printf "%s%s", sep, $1; sep="|"}')}" >&2
+      return 2
+      ;;
+  esac
+}
+
+dispatch "$@"
+exit $?

@@ -1,0 +1,47 @@
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--box-text);
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:active {
+    background: var(--box-subtle-bg);
+  }
+
+  &:disabled {
+    color: var(--box-text-tertiary);
+    cursor: default;
+  }
+}
+
+.danger {
+  color: var(--box-danger);
+}
+
+// 选中态：搜索框展开时图标变蓝，与截图一致
+.active {
+  color: var(--box-primary);
+}
+
+// 刷新中让图标缓慢旋转，给出进行中的反馈
+.spinning {
+  animation: box-spin 0.9s linear infinite;
+}
+
+@keyframes box-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

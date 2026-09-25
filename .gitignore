@@ -1,0 +1,4 @@
+# 构建产物：模块 zip 由 box_for_root/build.sh 生成
+box-*.zip
+
+images

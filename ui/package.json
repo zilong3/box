@@ -1,0 +1,39 @@
+{
+  "name": "box-for-root-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Box for Root 控制面板（KernelSU WebUI）",
+  "scripts": {
+    "start:ui": "webpack serve --mode development",
+    "build:ui": "webpack --mode production",
+    "typecheck:ui": "tsc --noEmit",
+    "clean:ui": "rm -rf ../box_for_root/webroot",
+    "build:box": "sh ../box_for_root/build.sh"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.3.4",
+    "antd": "^6.6.5",
+    "kernelsu": "^3.0.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "copy-webpack-plugin": "^14.0.0",
+    "css-loader": "^7.1.5",
+    "css-minimizer-webpack-plugin": "^8.0.0",
+    "html-webpack-plugin": "^5.6.8",
+    "less": "^4.9.1",
+    "less-loader": "^13.0.0",
+    "mini-css-extract-plugin": "^2.10.2",
+    "style-loader": "^4.0.0",
+    "terser-webpack-plugin": "^5.6.1",
+    "ts-loader": "^9.6.2",
+    "typescript": "^5.9.3",
+    "webpack": "^5.111.1",
+    "webpack-cli": "^7.2.3",
+    "webpack-dev-server": "^6.0.0"
+  }
+}
